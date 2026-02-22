@@ -1,0 +1,141 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Get the current user's UID
+    function currentUid() {
+      return request.auth.uid;
+    }
+
+    // Get a user document by UID
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    // Check if the current user has a specific role
+    function hasRole(role) {
+      return isAuthenticated() && getUserData(currentUid()).role == role;
+    }
+
+    // Check if user is an admin
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    // Check if user is a doctor
+    function isDoctor() {
+      return hasRole('doctor');
+    }
+
+    // Check if user owns this document
+    function isOwner(uid) {
+      return isAuthenticated() && currentUid() == uid;
+    }
+
+    // ============================================
+    // USERS COLLECTION
+    // ============================================
+    match /users/{userId} {
+      // Users can read their own profile
+      // Doctors can read patient profiles (for appointment context)
+      // Admins can read all profiles
+      allow read: if isAuthenticated() && (
+        isOwner(userId) ||
+        isAdmin() ||
+        isDoctor()
+      );
+
+      // Users can create their own profile on registration
+      allow create: if isAuthenticated() && isOwner(userId) && (
+        // Validate required fields
+        request.resource.data.keys().hasAll(['uid', 'email', 'role']) &&
+        // Ensure role is valid
+        request.resource.data.role in ['patient', 'doctor', 'admin'] &&
+        // Ensure UID matches authenticated user
+        request.resource.data.uid == currentUid()
+      );
+
+      // Users can update their own profile
+      // Admins can update any profile
+      // Regular users cannot change their own role
+      allow update: if isAuthenticated() && (
+        (isOwner(userId) && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) ||
+          isAdmin()
+        )) ||
+        isAdmin()
+      );
+
+      // Only admins can delete user documents
+      allow delete: if isAdmin();
+    }
+
+    // ============================================
+    // APPOINTMENTS COLLECTION
+    // ============================================
+    match /appointments/{appointmentId} {
+      // Patients can read their own appointments
+      // Doctors can read appointments assigned to them
+      // Admins can read all appointments
+      allow read: if isAuthenticated() && (
+        resource.data.userId == currentUid() ||
+        isDoctor() ||
+        isAdmin()
+      );
+
+      // Authenticated users can create appointments
+      allow create: if isAuthenticated() && (
+        // Validate required fields
+        request.resource.data.keys().hasAll([
+          'patientName', 'doctor', 'date', 'status', 'userId'
+        ]) &&
+        // Ensure userId matches authenticated user
+        request.resource.data.userId == currentUid() &&
+        // Status must start as 'pending'
+        request.resource.data.status == 'pending'
+      );
+
+      // Patients can cancel their own appointments
+      // Doctors can update status (confirm/complete/cancel)
+      // Admins can update any appointment
+      allow update: if isAuthenticated() && (
+        // Patient can only cancel their own appointments
+        (resource.data.userId == currentUid() && (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+          request.resource.data.status == 'cancelled'
+        )) ||
+        // Doctors can update status of appointments
+        (isDoctor() && (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+          request.resource.data.status in ['confirmed', 'completed', 'cancelled']
+        )) ||
+        // Admins can update anything
+        isAdmin()
+      );
+
+      // Patients can delete their own appointments
+      // Admins can delete any appointment
+      allow delete: if isAuthenticated() && (
+        resource.data.userId == currentUid() ||
+        isAdmin()
+      );
+    }
+
+    // ============================================
+    // DEFAULT: Deny all other access
+    // ============================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

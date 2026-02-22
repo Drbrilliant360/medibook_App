@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "420702616927",
+    "project_id": "booking-4f490",
+    "storage_bucket": "booking-4f490.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:420702616927:android:39beb8f4b8b189fd798aea",
+        "android_client_info": {
+          "package_name": "com.brilliant.booking_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "420702616927-rbftcvfn7bo2o9087ip8mok45jru117d.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAyt6eWUBRhl9sBpH-PFE5FH1Hy1l5MoQY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "420702616927-rbftcvfn7bo2o9087ip8mok45jru117d.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
